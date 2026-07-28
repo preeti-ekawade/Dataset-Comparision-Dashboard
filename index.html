@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vegetation Insights</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-1:#f6f9f4;
+    --bg-2:#eaf5ec;
+    --ink:#10241c;
+    --dim:rgba(16,36,28,0.60);
+    --hair:rgba(16,36,28,0.10);
+    --emerald:#059669;
+    --lime:#65a30d;
+    --cyan:#0891b2;
+    --sky:#0284c7;
+    --card:#ffffff;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+
+  body{
+    font-family:'Inter',sans-serif;
+    background:linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+    color:var(--ink);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  body.locked{overflow:hidden; height:100vh;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+  }
+
+  /* ================= INTRO / SPLASH ================= */
+  #intro{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    background:radial-gradient(ellipse at 50% 30%, #f2faf1 0%, #e2f1e5 60%, #d7ecdc 100%);
+    transition:transform 1s cubic-bezier(.76,0,.24,1), opacity .8s ease;
+  }
+
+  #intro.dismissed{
+    transform:translateY(-100%);
+    pointer-events:none;
+  }
+
+  .intro-icon{
+    width:110px;
+    height:110px;
+    margin-bottom:2.2rem;
+    animation:float 4s ease-in-out infinite;
+  }
+
+  @keyframes float{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-10px);}
+  }
+
+  .intro-eyebrow{
+    font-size:0.78rem;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--emerald);
+    font-weight:600;
+    margin-bottom:1.2rem;
+    opacity:0;
+    animation:fadeUp .9s ease forwards .2s;
+  }
+
+  #intro h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:clamp(2.6rem, 8vw, 5.4rem);
+    letter-spacing:-0.02em;
+    line-height:1.02;
+    color:var(--ink);
+    opacity:0;
+    animation:fadeUp 1s ease forwards .4s;
+  }
+
+  #intro p{
+    margin-top:1.4rem;
+    font-weight:300;
+    font-size:1.05rem;
+    color:var(--dim);
+    max-width:480px;
+    opacity:0;
+    animation:fadeUp 1s ease forwards .6s;
+  }
+
+  @keyframes fadeUp{
+    from{opacity:0; transform:translateY(18px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+
+  .enter-btn{
+    margin-top:2.6rem;
+    padding:1rem 2.4rem;
+    border-radius:100px;
+    border:1px solid rgba(16,36,28,0.18);
+    background:var(--ink);
+    color:#f6f9f4;
+    font-family:'Inter',sans-serif;
+    font-size:0.88rem;
+    font-weight:500;
+    letter-spacing:0.02em;
+    cursor:pointer;
+    opacity:0;
+    animation:fadeUp 1s ease forwards .85s;
+    transition:transform .3s ease, background .3s ease;
+  }
+
+  .enter-btn:hover{
+    transform:translateY(-2px);
+    background:var(--emerald);
+  }
+
+  .intro-loader{
+    position:absolute;
+    bottom:3.4rem;
+    width:160px;
+    height:2px;
+    background:rgba(16,36,28,0.1);
+    border-radius:2px;
+    overflow:hidden;
+    opacity:0;
+    animation:fadeUp .8s ease forwards 1s;
+  }
+
+  .intro-loader::after{
+    content:'';
+    display:block;
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg, var(--emerald), var(--cyan));
+    animation:loadbar 2.6s ease forwards 1.1s;
+  }
+
+  @keyframes loadbar{ to{ width:100%; } }
+
+  /* ================= Background canvas (main site) ================= */
+  #bg-canvas{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:0;
+    pointer-events:none;
+    opacity:0.55;
+  }
+
+  .cursor-glow{
+    position:fixed;
+    width:420px;
+    height:420px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(5,150,105,0.07) 0%, transparent 70%);
+    pointer-events:none;
+    z-index:1;
+    transform:translate(-50%,-50%);
+  }
+
+  /* ================= Nav ================= */
+  nav{
+    position:fixed;
+    top:24px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:100;
+    display:flex;
+    align-items:center;
+    gap:2.2rem;
+    padding:0.9rem 2.2rem;
+    background:rgba(255,255,255,0.55);
+    backdrop-filter:blur(18px) saturate(160%);
+    -webkit-backdrop-filter:blur(18px) saturate(160%);
+    border:1px solid rgba(16,36,28,0.08);
+    border-radius:100px;
+    box-shadow:0 8px 32px rgba(16,36,28,0.08);
+    opacity:0;
+    transition:opacity .8s ease;
+  }
+
+  nav.visible{opacity:1;}
+
+  .nav-logo{
+    display:flex;
+    align-items:center;
+    gap:0.6rem;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:0.95rem;
+    letter-spacing:0.02em;
+    margin-right:0.8rem;
+    white-space:nowrap;
+  }
+
+  .nav-logo .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--lime);
+    box-shadow:0 0 10px var(--lime);
+    animation:pulse-dot 2.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot{
+    0%,100%{opacity:1; transform:scale(1);}
+    50%{opacity:0.5; transform:scale(0.7);}
+  }
+
+  nav a{
+    color:var(--dim);
+    text-decoration:none;
+    font-size:0.82rem;
+    font-weight:500;
+    position:relative;
+    padding-bottom:4px;
+    transition:color .3s;
+    white-space:nowrap;
+  }
+
+  nav a::after{
+    content:'';
+    position:absolute;
+    left:0; bottom:0;
+    width:0%;
+    height:1px;
+    background:linear-gradient(90deg,var(--emerald),var(--cyan));
+    transition:width .35s ease;
+  }
+
+  nav a:hover{color:var(--ink);}
+  nav a:hover::after{width:100%;}
+
+  @media (max-width: 900px){
+    nav{gap:1rem; padding:0.7rem 1.2rem; max-width:92vw; overflow-x:auto;}
+    nav a{font-size:0.72rem;}
+  }
+
+  /* ================= Layout ================= */
+  main{position:relative; z-index:2;}
+
+  section{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:8vh 8vw;
+    position:relative;
+  }
+
+  .eyebrow{
+    font-size:0.78rem;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color:var(--lime);
+    font-weight:600;
+    margin-bottom:1.4rem;
+  }
+
+  h1, h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    letter-spacing:-0.02em;
+    line-height:1.05;
+    color:var(--ink);
+  }
+
+  h1{font-size:clamp(2.4rem, 6.4vw, 5.2rem);}
+  h2{font-size:clamp(2rem, 4.2vw, 3.2rem);}
+
+  p.lede{
+    font-weight:300;
+    font-size:clamp(1rem, 1.4vw, 1.2rem);
+    color:var(--dim);
+    max-width:640px;
+    margin-top:1.6rem;
+    line-height:1.75;
+  }
+
+  /* fade-in-on-scroll: visible by default; JS only enhances */
+  .reveal-item{
+    opacity:1;
+    transform:none;
+    transition:opacity .8s ease, transform .8s ease;
+  }
+  .js-ready .reveal-item{
+    opacity:0;
+    transform:translateY(22px);
+  }
+  .js-ready .reveal-item.in-view{
+    opacity:1;
+    transform:translateY(0);
+  }
+
+  .divider{
+    width:100%;
+    max-width:220px;
+    height:1px;
+    background:linear-gradient(90deg, var(--emerald), transparent);
+    margin:2.4rem 0;
+  }
+
+  #home{align-items:flex-start;}
+
+  .hero-scroll-cue{
+    position:absolute;
+    bottom:6vh;
+    left:8vw;
+    display:flex;
+    align-items:center;
+    gap:0.7rem;
+    color:var(--dim);
+    font-size:0.78rem;
+    letter-spacing:0.08em;
+  }
+
+  .scroll-line{
+    width:1px;
+    height:36px;
+    background:linear-gradient(180deg, var(--cyan), transparent);
+    animation:scroll-flow 2s ease-in-out infinite;
+  }
+
+  @keyframes scroll-flow{
+    0%{transform:scaleY(0.3); transform-origin:top;}
+    50%{transform:scaleY(1); transform-origin:top;}
+    100%{transform:scaleY(0.3); transform-origin:bottom;}
+  }
+
+  /* ================= Map Sections ================= */
+  .map-section-inner{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    width:100%;
+  }
+
+  .map-frame-wrap{
+    position:relative;
+    width:100%;
+    max-width:1180px;
+    aspect-ratio:16/9;
+    border-radius:28px;
+    overflow:hidden;
+    box-shadow:0 30px 70px rgba(16,36,28,0.14), 0 0 0 1px rgba(16,36,28,0.06);
+    margin:2.4rem 0 3rem;
+    background:var(--card);
+  }
+
+  .map-frame-wrap iframe{
+    width:100%;
+    height:100%;
+    border:0;
+    display:block;
+    background:#eef5ef;
+  }
+
+  .dataset-row{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:3.2rem 4.4rem;
+    max-width:1000px;
+    margin-bottom:2rem;
+  }
+
+  .dataset-item{text-align:center; min-width:130px;}
+
+  .dataset-label{
+    font-size:0.72rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--dim);
+    margin-bottom:0.5rem;
+  }
+
+  .dataset-value{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:1.15rem;
+    font-weight:600;
+    color:var(--ink);
+  }
+
+  .dataset-value.accent{color:var(--emerald);}
+
+  .legend-strip{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:2.6rem;
+    margin-top:1.4rem;
+  }
+
+  .legend-item{
+    display:flex;
+    align-items:center;
+    gap:0.6rem;
+    font-size:0.85rem;
+    color:var(--dim);
+  }
+
+  .legend-swatch{
+    width:14px;height:14px;border-radius:4px;
+  }
+
+  .map-tabs{
+    display:flex;
+    gap:0.4rem;
+    background:rgba(16,36,28,0.05);
+    border:1px solid var(--hair);
+    padding:0.35rem;
+    border-radius:100px;
+    position:relative;
+    margin-bottom:0.5rem;
+  }
+
+  .map-tabs button{
+    position:relative;
+    z-index:2;
+    background:none;
+    border:none;
+    color:var(--dim);
+    font-family:'Inter',sans-serif;
+    font-size:0.8rem;
+    font-weight:500;
+    padding:0.55rem 1.3rem;
+    border-radius:100px;
+    cursor:pointer;
+    transition:color .3s;
+  }
+
+  .map-tabs button.active{color:#fff;}
+
+  .tab-indicator{
+    position:absolute;
+    top:0.35rem;
+    bottom:0.35rem;
+    left:0.35rem;
+    width:calc(33.33% - 0.35rem);
+    background:linear-gradient(120deg, var(--emerald), var(--cyan));
+    border-radius:100px;
+    transition:transform .45s cubic-bezier(.65,0,.35,1);
+    z-index:1;
+  }
+
+  /* ================= Comparison ================= */
+  .compare-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:3rem 2.4rem;
+    max-width:1100px;
+    margin-top:2.4rem;
+  }
+
+  .compare-col h3{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:1.35rem;
+    font-weight:600;
+    margin-bottom:1.2rem;
+    color:var(--cyan);
+  }
+
+  .compare-col .row{
+    display:flex;
+    justify-content:space-between;
+    padding:0.7rem 0;
+    border-bottom:1px solid var(--hair);
+    font-size:0.88rem;
+  }
+
+  .compare-col .row span:first-child{color:var(--dim);}
+
+  .magnetic-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:0.6rem;
+    margin-top:2rem;
+    padding:0.9rem 1.8rem;
+    border:1px solid rgba(16,36,28,0.18);
+    border-radius:100px;
+    color:var(--ink);
+    font-size:0.85rem;
+    letter-spacing:0.02em;
+    cursor:pointer;
+    background:transparent;
+    transition:border-color .3s, background .3s, color .3s;
+  }
+
+  .magnetic-btn:hover{
+    border-color:var(--emerald);
+    background:var(--emerald);
+    color:#fff;
+  }
+
+  #about p.lede{max-width:720px;}
+
+  footer{
+    text-align:center;
+    padding:4rem 2rem 3rem;
+    color:var(--dim);
+    font-size:0.78rem;
+    letter-spacing:0.04em;
+  }
+
+  .orbit-icon{
+    position:absolute;
+    top:10vh;
+    right:9vw;
+    width:120px;
+    height:120px;
+    opacity:0.7;
+  }
+
+  @media (max-width:900px){
+    .orbit-icon{display:none;}
+    section{padding:6vh 6vw;}
+  }
+</style>
+</head>
+<body class="locked">
+
+<!-- ================= INTRO ================= -->
+<div id="intro">
+  <svg class="intro-icon" viewBox="0 0 100 100" fill="none">
+    <ellipse cx="50" cy="50" rx="42" ry="18" stroke="#0891b2" stroke-width="1.2"/>
+    <ellipse cx="50" cy="50" rx="18" ry="42" stroke="#059669" stroke-opacity="0.4" stroke-width="1"/>
+    <circle cx="50" cy="50" r="9" fill="#65a30d" fill-opacity="0.25" stroke="#65a30d" stroke-width="1.2"/>
+    <circle cx="92" cy="50" r="3" fill="#65a30d"/>
+  </svg>
+  
+  <h1>Vegetation Insights</h1>
+  <p>A view of Earth's vegetation, drawn from MODIS, Landsat 9, and Sentinel-2.</p>
+  <button class="enter-btn" id="enterBtn">Enter the portal</button>
+  <div class="intro-loader"></div>
+</div>
+
+<canvas id="bg-canvas"></canvas>
+<div class="cursor-glow" id="cursorGlow"></div>
+
+<nav id="mainNav">
+  <div class="nav-logo"><span class="dot"></span>Vegetayion Insights</div>
+  <a href="#home">Home</a>
+  <a href="#modis">MODIS NDVI</a>
+  <a href="#landsat">Landsat 9 FCC</a>
+  <a href="#sentinel">Sentinel-2 FCC</a>
+  <a href="#compare">Dataset Comparison</a>
+  <a href="#about">Inference</a>
+</nav>
+
+<main>
+
+  <!-- HOME -->
+  <section id="home">
+    <svg class="orbit-icon" viewBox="0 0 100 100" fill="none">
+      <ellipse cx="50" cy="50" rx="42" ry="18" stroke="#0891b2" stroke-opacity="0.6" stroke-width="1"/>
+      <circle cx="50" cy="50" r="10" stroke="#65a30d" stroke-opacity="0.6" stroke-width="1"/>
+      <circle id="orbitDot" cx="92" cy="50" r="3" fill="#65a30d"/>
+    </svg>
+    <p class="eyebrow reveal-item">FCC Analysis</p>
+    <h1 class="reveal-item">Explore Earth's <br>Green Cover</h1>
+    <p class="lede reveal-item">
+      This project presents interactive visualizations of vegetation products from
+MODIS, Landsat 9, and Sentinel-2 satellite datasets. Using NDVI and False Color
+Composite (FCC) imagery, it enables users to explore vegetation distribution,
+monitor land cover, and compare satellite observations across different spatial
+resolutions.
+    </p>
+    <div class="hero-scroll-cue">
+      <div class="scroll-line"></div>
+      SCROLL TO EXPLORE
+    </div>
+  </section>
+
+  <!-- MODIS NDVI -->
+  <section id="modis">
+    <div class="map-section-inner">
+      <p class="eyebrow reveal-item">Dataset 01 — Vegetation Index</p>
+      <h2 class="reveal-item">MODIS NDVI</h2>
+      <div class="map-frame-wrap reveal-item">
+        <iframe src="https://preeti-ee.projects.earthengine.app/view/modisndvi"lazy" title="MODIS NDVI Map"></iframe>
+      </div>
+
+      <div class="dataset-row reveal-item">
+        <div class="dataset-item"><div class="dataset-label">Satellite</div><div class="dataset-value">MODIS (Terra/Aqua)</div></div>
+        <div class="dataset-item"><div class="dataset-label">Agency</div><div class="dataset-value">NASA</div></div>
+        <div class="dataset-item"><div class="dataset-label">Spatial Resolution</div><div class="dataset-value accent">250 m</div></div>
+        <div class="dataset-item"><div class="dataset-label">Temporal Resolution</div><div class="dataset-value accent">Daily</div></div>
+        <div class="dataset-item"><div class="dataset-label">Applications</div><div class="dataset-value">Drought & crop monitoring</div></div>
+      </div>
+
+
+
+     <p class="lede reveal-item"style="text-align: center; margin: 0 auto;">The MODIS NDVI (2024) map represents the vegetation condition across the Goa talukas of Mormugao, Tiswadi, and Bardez, which form the Region of Interest (ROI). Most of the ROI is covered by moderate to healthy vegetation (green shades), indicating good vegetation health. Dark green areas represent dense vegetation and forest cover, while yellow and orange areas indicate sparse vegetation, agricultural land, or built-up regions with lower vegetation density. Blue areas correspond to water bodies and regions with very low vegetation. Overall, the map provides a clear overview of the spatial distribution of vegetation across the selected Goa talukas and demonstrates the usefulness of MODIS NDVI for regional vegetation monitoring.</p>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- LANDSAT 9 -->
+  <section id="landsat">
+    <div class="map-section-inner">
+      <p class="eyebrow reveal-item">Dataset 02 — True Color Composite</p>
+      <h2 class="reveal-item">Landsat 9 FCC</h2>
+      <div class="map-frame-wrap reveal-item">
+        <iframe src= "https://preeti-ee.projects.earthengine.app/view/landsat9fcc"lazy" title="Landsat 9 FCC Map"></iframe>
+      </div>
+
+      <div class="dataset-row reveal-item">
+        <div class="dataset-item"><div class="dataset-label">Satellite</div><div class="dataset-value">Landsat 9</div></div>
+        <div class="dataset-item"><div class="dataset-label">Agency</div><div class="dataset-value">NASA / USGS</div></div>
+        <div class="dataset-item"><div class="dataset-label">Spatial Resolution</div><div class="dataset-value accent">30 m</div></div>
+        <div class="dataset-item"><div class="dataset-label">Temporal Resolution</div><div class="dataset-value accent">16 days</div></div>
+        <div class="dataset-item"><div class="dataset-label">Applications</div><div class="dataset-value">Land cover, change detection</div></div>
+      </div>
+<p class="lede reveal-item"style="text-align: center; margin: 0 auto;">The Landsat 9 False Color Composite (B5–B4–B3) shows the land cover of the Goa talukas of Mormugao, Tiswadi, and Bardez. In this image, healthy vegetation appears in bright red, indicating that a large part of the study area is covered with vegetation. Light red shades represent moderate vegetation and croplands. Grey and brown areas indicate built-up land and bare soil, while dark blue and black areas represent water bodies such as rivers, estuaries, and the Arabian Sea. Overall, the image provides a clear view of vegetation and other land cover features across the selected talukas of Goa.
+</p>
+    </div>
+  </section>
+
+  <!-- SENTINEL-2 -->
+  <section id="sentinel">
+    <div class="map-section-inner">
+      <p class="eyebrow reveal-item">Dataset 03 — High Resolution Composite</p>
+      <h2 class="reveal-item">Sentinel-2 FCC</h2>
+
+      
+
+      <div class="map-frame-wrap reveal-item">
+        <iframe id="sentinelFrame" src="https://preeti-ee.projects.earthengine.app/view/sentinel2fcc"lazy" title="Sentinel-2 FCC Map"></iframe>
+      </div>
+
+      <div class="dataset-row reveal-item">
+        <div class="dataset-item"><div class="dataset-label">Satellite</div><div class="dataset-value">Sentinel-2 A/B</div></div>
+        <div class="dataset-item"><div class="dataset-label">Agency</div><div class="dataset-value">ESA / Copernicus</div></div>
+        <div class="dataset-item"><div class="dataset-label">Spatial Resolution</div><div class="dataset-value accent">10 m</div></div>
+        <div class="dataset-item"><div class="dataset-label">Temporal Resolution</div><div class="dataset-value accent">5 days</div></div>
+        <div class="dataset-item"><div class="dataset-label">Applications</div><div class="dataset-value">Precision agriculture, forestry</div></div>
+      </div>
+    </div>
+    <p class="lede reveal-item" style="text-align: center; margin: 0 auto;">
+      The Sentinel-2 False Color Composite (B8–B4–B3) shows the land cover of the Goa talukas of Mormugao, Tiswadi, and Bardez. Healthy vegetation appears in bright red, indicating extensive vegetation cover across the study area. Light red and pink shades represent moderate vegetation and croplands. Grey and light brown areas indicate built-up land and bare soil, while dark blue areas represent water bodies such as rivers, estuaries, and the Arabian Sea. Due to the higher spatial resolution of Sentinel-2, the image provides finer details of vegetation and land cover, making it useful for detailed vegetation monitoring and land use analysis.
+    </p>
+
+  </div>
+</section>
+     
+  <!-- COMPARISON -->
+  <section id="compare">
+    <p class="eyebrow reveal-item">Side by Side</p>
+    <h2 class="reveal-item">Dataset Comparison</h2>
+    <div class="compare-grid reveal-item">
+      <div class="compare-col">
+        <h3>MODIS</h3>
+        <div class="row"><span>Resolution</span><span>250 m</span></div>
+        <div class="row"><span>Revisit</span><span>Daily</span></div>
+        <div class="row"><span>Best for</span><span>Regional trends</span></div>
+      </div>
+      <div class="compare-col">
+        <h3>Landsat 9</h3>
+        <div class="row"><span>Resolution</span><span>30 m</span></div>
+        <div class="row"><span>Revisit</span><span>16 days</span></div>
+        <div class="row"><span>Best for</span><span>Long-term change</span></div>
+      </div>
+      <div class="compare-col">
+        <h3>Sentinel-2</h3>
+        <div class="row"><span>Resolution</span><span>10 m</span></div>
+        <div class="row"><span>Revisit</span><span>5 days</span></div>
+        <div class="row"><span>Best for</span><span>Field-level detail</span></div>
+      </div>
+    </div>
+    
+  </section>
+
+  <!-- ABOUT -->
+  <section id="about">
+    <p class="eyebrow reveal-item">So how does it help us?</p>
+   
+    <div class="divider"></div>
+    <p class="lede reveal-item">This project demonstrates the use of satellite remote sensing data to visualize vegetation through three different datasets: MODIS NDVI, Landsat 9 False Color Composite (FCC), and Sentinel-2 False Color Composite (FCC). Each dataset provides a unique perspective on vegetation based on its spatial and temporal characteristics, allowing users to explore and compare vegetation patterns effectively.
+
+By integrating these visualizations into an interactive web application, the project makes Earth observation data more accessible and easier to understand. It highlights the importance of satellite imagery in monitoring vegetation, studying land cover, and supporting environmental analysis. Overall, the project showcases how modern geospatial technologies can transform complex satellite data into meaningful visual insights for education, research, and environmental monitoring.
+
+    </p>
+  </section>
+
+
+</main>
+
+<script>
+  // ---------- Intro dismiss ----------
+  const intro = document.getElementById('intro');
+  const nav = document.getElementById('mainNav');
+  const body = document.body;
+
+  function dismissIntro(){
+    intro.classList.add('dismissed');
+    body.classList.remove('locked');
+    nav.classList.add('visible');
+  }
+
+  document.getElementById('enterBtn').addEventListener('click', dismissIntro);
+  // auto-dismiss as a fallback so the site is never stuck behind the intro
+  setTimeout(() => { if(!intro.classList.contains('dismissed')) { /* still let user click; no forced auto-skip */ } }, 6000);
+
+  // ---------- Animated background (light theme: soft contour lines) ----------
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let w, h, particles;
+
+  function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = document.body.scrollHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function initParticles(){
+    particles = Array.from({length: 50}, () => ({
+      x: Math.random()*w,
+      y: Math.random()*h,
+      r: Math.random()*1.6 + 0.4,
+      speedX: (Math.random()-0.5)*0.12,
+      speedY: (Math.random()-0.5)*0.12 - 0.03,
+      alpha: Math.random()*0.35 + 0.1,
+      hue: Math.random() > 0.5 ? '5,150,105' : '8,145,178'
+    }));
+  }
+  initParticles();
+
+  let t = 0;
+  function drawContours(){
+    ctx.save();
+    ctx.globalAlpha = 0.05;
+    for(let i=0;i<5;i++){
+      ctx.beginPath();
+      const yBase = h*0.1 + i*h*0.2 + Math.sin(t*0.0003 + i)*30;
+      ctx.moveTo(0, yBase);
+      for(let x=0;x<=w;x+=40){
+        const y = yBase + Math.sin(x*0.008 + t*0.0006 + i) * 26;
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = i % 2 === 0 ? 'rgb(5,150,105)' : 'rgb(8,145,178)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawParticles(){
+    particles.forEach(p => {
+      p.x += p.speedX;
+      p.y += p.speedY;
+      if(p.x < 0) p.x = w; if(p.x > w) p.x = 0;
+      if(p.y < 0) p.y = h; if(p.y > h) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(${p.hue},${p.alpha})`;
+      ctx.fill();
+    });
+  }
+
+  function animate(){
+    t += 16;
+    ctx.clearRect(0,0,w,h);
+    drawContours();
+    drawParticles();
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  // ---------- Cursor glow ----------
+  const glow = document.getElementById('cursorGlow');
+  window.addEventListener('mousemove', e => {
+    glow.style.left = e.clientX + 'px';
+    glow.style.top = e.clientY + 'px';
+  });
+
+  // ---------- Scroll reveal (progressive enhancement) ----------
+  document.documentElement.classList.add('js-ready');
+  const revealEls = document.querySelectorAll('.reveal-item');
+  if('IntersectionObserver' in window){
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting){
+          entry.target.classList.add('in-view');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    revealEls.forEach(el => observer.observe(el));
+    // safety net: reveal anything already in view on load (e.g. hash navigation)
+    setTimeout(() => {
+      revealEls.forEach(el => {
+        const rect = el.getBoundingClientRect();
+        if(rect.top < window.innerHeight && rect.bottom > 0){
+          el.classList.add('in-view');
+        }
+      });
+    }, 50);
+  } else {
+    revealEls.forEach(el => el.classList.add('in-view'));
+  }
+
+  // ---------- Rotating orbit dot ----------
+  const orbitDot = document.getElementById('orbitDot');
+  let angle = 0;
+  function orbit(){
+    angle += 0.01;
+    const rx = 42, ry = 18, cx = 50, cy = 50;
+    orbitDot.setAttribute('cx', cx + rx*Math.cos(angle));
+    orbitDot.setAttribute('cy', cy + ry*Math.sin(angle));
+    requestAnimationFrame(orbit);
+  }
+  orbit();
+
+  // ---------- Sentinel-2 tab switching ----------
+  const tabs = document.querySelectorAll('#mapTabs button');
+  const indicator = document.getElementById('tabIndicator');
+  const sentinelFrame = document.getElementById('sentinelFrame');
+  const sentinelSources = [
+    'https://earthengine.google.com/timelapse/', // True Color
+    'https://earthengine.google.com/timelapse/', // False Color
+    'https://earthengine.google.com/timelapse/'  // Agriculture
+  ];
+
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const idx = parseInt(btn.dataset.idx, 10);
+      indicator.style.transform = `translateX(${idx * 100}%)`;
+      sentinelFrame.src = sentinelSources[idx];
+    });
+  });
+
+  // ---------- Magnetic button ----------
+  const magBtn = document.getElementById('magBtn');
+  magBtn.addEventListener('mousemove', (e) => {
+    const rect = magBtn.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width/2;
+    const y = e.clientY - rect.top - rect.height/2;
+    magBtn.style.transform = `translate(${x*0.25}px, ${y*0.4}px)`;
+  });
+  magBtn.addEventListener('mouseleave', () => {
+    magBtn.style.transform = 'translate(0,0)';
+  });
+</script>
+
+</body>
+</html>
